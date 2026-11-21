@@ -173,7 +173,7 @@ function planHtml(){const due=dueItems();const recent=daysList().slice(-12).reve
 function libraryHtml(){
  const l=LEVELS.find(x=>x.id===libraryLevel)||LEVELS[0];
  if(!l.books.some(b=>b[0]===activeLibraryBook))activeLibraryBook=l.books[0][0];
- const k=BOOKS[activeLibraryBook],book=k.id,chapters=MATN_INDEX[book]||[],num=unitsCount(book),done=bookUnitsDone(book),audio=VERIFIED_AUDIO[book]||k.audio||SOUND,sharh=VERIFIED_SHARH[book]||k.sharh||SHARH,reading=VERIFIED_PDF[book]||k.reading;
+ const k=BOOKS[activeLibraryBook],book=k.id,chapters=MATN_INDEX[book]||[],num=book==='nawawi'?42:unitsCount(book),done=book==='nawawi'?Array.from({length:42},(_,i)=>unitState('nawawi','nawawi-'+(i+1))).filter(x=>x.memorized).length:bookUnitsDone(book),audio=VERIFIED_AUDIO[book]||k.audio||SOUND,sharh=VERIFIED_SHARH[book]||k.sharh||SHARH,reading=VERIFIED_PDF[book]||k.reading;
  return `<section class="main-hero"><div class="hero-content"><span class="hero-kicker">الآن دون البحث بين عشرات الصفحات</span><h1>📖 اقرئي، اسمعي، راجعي</h1><div class="hero-sub">المستوى ← المتن ← الحديث. نصوص وشروح كاملة للأربعين النووية (42 حديثاً)، وبقية المتون مدرجة بروابط وفهارس المصدر بوضوح.</div></div></section>
  <section class="card" style="margin-top:16px"><div class="section-head"><h2>① اختاري المستوى</h2><span class="chip">7 مستويات</span></div><div class="levels">${LEVELS.map(x=>`<button class="level-btn ${libraryLevel===x.id?'active':''}" data-level="${x.id}">${escapeHTML(x.short)}</button>`).join('')}</div>
  <h2 style="margin:23px 0 7px">② اختاري المتن</h2><div class="book-picker">${l.books.map(b=>`<button class="${book===b[0]?'active':''}" data-openbook="${b[0]}">${escapeHTML(b[1])}</button>`).join('')}</div>
