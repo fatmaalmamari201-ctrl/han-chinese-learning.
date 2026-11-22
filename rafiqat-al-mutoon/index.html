@@ -148,7 +148,7 @@ function persist(){try{localStorage.setItem(STORE,JSON.stringify(db))}catch{toas
 function curBook(){return BOOKS[db.profile?.book]||BOOKS.athkar}
 function lIndex(){return LEVELS.find(x=>x.id===db.profile?.level)||LEVELS[0]}
 function bookOpts(level,selectedId){let l=LEVELS.find(x=>x.id===level)||LEVELS[0];return l.books.map(b=>`<option value="${b[0]}" ${selectedId===b[0]?'selected':''}>${escapeHTML(b[1])}</option>`).join('')}
-function levelOpts(sel){return LEVELS.map(l=>`<option value="${l.id}" ${l.id===sel?'selected':''}>${escapeHTML(l.title)} — ${escapeHTML(l.caption)}</option>`).join('')}
+function levelOpts(sel){return LEVELS.filter(l=>['pre','2','3'].includes(l.id)).map(l=>`<option value="${l.id}" ${l.id===sel?'selected':''}>${escapeHTML(l.title)} — ${escapeHTML(l.caption)}</option>`).join('')}
 function getDay(s){return db.days[s]||{date:s,attended:false,book:db.profile?.book||'athkar',newText:'',newFrom:'',newTo:'',newPages:0,reviewBook:db.profile?.book||'athkar',reviewText:'',reviewFrom:'',reviewTo:'',reviewPages:0,note:'',saved:false}}
 function daysList(){return Object.values(db.days).filter(x=>x&&x.saved).sort((a,b)=>a.date.localeCompare(b.date))}
 function thisWeekStart(s){let d=parse(s);d.setDate(d.getDate()-d.getDay());return dt(d)}
