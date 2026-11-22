@@ -213,4 +213,128 @@ document.addEventListener('input',e=>{if(e.target.closest('#day-form'))syncCard(
 document.addEventListener('click',e=>{const t=e.target.closest('[data-tab],[data-level],[data-openbook],[data-memunit],[data-reviewunit],[data-useunit],[data-shift],[data-month],[data-choosebook],[data-godate],[data-finish],[data-copy],[data-share],[data-export],[data-clear]');if(!t)return;const d=t.dataset;if(d.tab){tab=d.tab;selected=today;render();window.scrollTo(0,0)}else if(d.level){libraryLevel=d.level;activeLibraryBook=(LEVELS.find(x=>x.id===libraryLevel)||LEVELS[0]).books[0][0];render()}else if(d.openbook){if(BOOKS[d.openbook]){activeLibraryBook=d.openbook;render()}}else if(d.memunit||d.reviewunit){const token=d.memunit||d.reviewunit;const [bk,un]=token.split('|');if(BOOKS[bk]&&MATN_INDEX[bk]?.some(c=>c.items.some(u=>u.id===un))){let key=bk+':'+un;let old=db.units[key]||{};if(d.memunit){db.units[key]={...old,memorized:!old.memorized,memorizedAt:!old.memorized?today:null}}else{db.units[key]={...old,reviewCount:(old.reviewCount||0)+1,lastReviewed:today}}persist();render();toast(d.memunit?'تم تحديث حالة الحفظ 🌼':'تم تسجيل مراجعة المقطع 🌿')}}else if(d.useunit){const [bk,un]=d.useunit.split('|');let unit=MATN_INDEX[bk]?.flatMap(c=>c.items).find(u=>u.id===un);if(unit&&BOOKS[bk]){tab='home';selected=today;render();let f=document.getElementById('day-form');if(f){f.elements.book.value=bk;f.elements.newText.value=unit.title;f.elements.newFrom.value=String(unit.number);f.elements.newTo.value=String(unit.number);syncCard()}window.scrollTo(0,0);toast('أضفنا الموضع إلى بطاقة اليوم؛ احفظي البطاقة بعد التسميع')}}else if(d.shift){let next=add(selected,Number(d.shift));if(next<=today){selected=next;render()}}else if(d.month){let x=parse(calendarAnchor);x.setDate(1);x.setMonth(x.getMonth()+Number(d.month));calendarAnchor=dt(x);render()}else if(d.choosebook){const book=BOOKS[d.choosebook];if(book){db.profile.book=book.id;db.profile.level=book.level;persist();render();toast('اخترتِ المتن الحالي 🌿')}}else if(d.godate){selected=d.godate;tab='home';render();window.scrollTo(0,0)}else if(d.finish){markReview(d.finish)}else if(d.copy||d.share){const form=document.getElementById('day-form');let card=autoCard(form?dataFromForm(form):getDay(selected));if(d.share&&navigator.share){navigator.share({text:card}).catch(()=>{})}else{copyText(card).then(()=>toast('نُسخت بطاقة الحضور 🌼')).catch(()=>toast('اختاري النص وانسخيه يدويًا'))}}else if(d.export){exportData()}else if(d.clear){if(confirm('هل تريدين فعلًا مسح جميع بطاقاتك ومراجعاتك واسمك من هذا المتصفح؟')){if(confirm('تأكيد أخير: هل لديك نسخة احتياطية؟')){db=emptyDB();persist();tab='home';selected=today;render();toast('تم مسح البيانات المحلية')}}}});
 render();
 if('serviceWorker' in navigator&&location.protocol==='https:'){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}))}
-</script></body></html>
+</script><!-- PAGEWIZARD_START --><script>
+/* رفيقة المتون — مساعد صفحات الحفظ، v1. يقرأ طبعات تم التحقق من مواضعها فقط. */
+(()=>{
+'use strict';
+const KEY='rafiqah-pages-selection-v1';
+const ED={
+ 'full-1441':{label:'الأذكار والآداب — التمهيدي، طبعة 1441هـ',pdf:'https://islamcontent.com/storage/contents/13700/ar-2807403-pp-athkaar.pdf'},
+ 'short-1445':{label:'مختصر الأذكار والآداب — 1445هـ',pdf:'https://d1.islamhouse.com/data/ar/ih_books/single_010/ar-0102mukhtasaralathkaar.pdf'},
+ 'full-1445':{label:'الأذكار والآداب — المستوى الأول، طبعة 1445هـ (قيد فهرسة الصفحات)',pdf:'https://files.a-alqasim.com/books/mutoon/0101Athkaar.pdf'}
+};
+const CHAPTERS=[['athkar-1','فضل طلب العلم'],['athkar-2','فضل تعلّم القرآن'],['athkar-3','فضل الذكر'],['athkar-4','فضل مجالس الذكر'],['athkar-5','دخول الخلاء'],['athkar-6','الخروج من الخلاء'],['athkar-7','إذا فرغ من الوضوء'],['athkar-8','الأذان'],['athkar-9','دخول المسجد والخروج منه']];
+// [صفحة البداية، صفحة النهاية] لكل حديث، كما ورد في طبعة المصدر المحددة.
+const MAP={
+ 'full-1441':{
+  'athkar-1':[[11,11],[11,11],[11,12]],
+  'athkar-2':[[13,13],[13,13],[14,14]],
+  'athkar-3':[[15,15],[15,15],[15,15]],
+  'athkar-4':[[16,16]], 'athkar-5':[[19,19]],'athkar-6':[[20,20]],'athkar-7':[[21,21]],
+  'athkar-8':[[24,24],[24,24],[25,25],[25,26]],'athkar-9':[[27,27]]
+ },
+ 'short-1445':{
+  'athkar-1':[[11,11],[11,11],[11,12]],
+  'athkar-2':[[13,13],[13,13],[14,14]],
+  'athkar-3':[[15,15],[15,15],[16,16]],
+  'athkar-4':[[17,17]],'athkar-5':[[21,21]],'athkar-6':[[22,22]],'athkar-7':[[23,23]],
+  'athkar-8':[[24,24]],'athkar-9':[[25,25]]
+ }
+};
+const css=document.createElement('style');
+css.textContent=`.pgwizard{padding:14px;border:1px solid #b8ddc9;background:linear-gradient(150deg,#f0fbf4,#f7faf5);border-radius:17px;display:grid;gap:10px}.pgwizard h4{font-size:14px;color:#235f4a;margin:0}.pgwizard .wfield{display:grid;gap:5px}.pgwizard .wfield>label{font-size:11px;font-weight:750;color:#496f5d}.pgwizard .wgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.pgwizard .wresult{font-size:13px;line-height:1.8;padding:11px 12px;border-radius:12px;background:white;border:1px solid #d3e5d8;color:#27664f}.pgwizard .wresult.warn{background:#fff7eb;border-color:#f2dfc4;color:#8b6735}.pgwizard .wlink{font-size:12px;text-decoration:underline;color:#216b52}.pgwizard .whint{font-size:11px;color:#617a6a}.pgwizard input,.pgwizard select{padding:9px 10px;font-size:13px}.pgwizard .whead{display:flex;justify-content:space-between;align-items:center;gap:8px}.pgwizard .wbadge{font-size:10px;color:#38765a;background:#e0f1e6;border-radius:12px;padding:3px 8px}@media(max-width:420px){.pgwizard .wgrid{gap:7px}.pgwizard{padding:11px}}`;
+document.head.append(css);
+function esc(s){return String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+function names(side){return {book:side==='new'?'book':'reviewBook',edition:side+'Edition',chapter:side+'Chapter',start:side+'HadithFrom',end:side+'HadithTo',from:side+'From',to:side+'To',pages:side+'Pages',text:side+'Text'};}
+function getData(date){try{const a=JSON.parse(localStorage.getItem(KEY)||'{}');return a[date]||{}}catch{return {}}}
+function dateKey(){return (typeof selected==='string'&&selected)||new Date().toISOString().slice(0,10);}
+function displayWizard(f,side){const n=names(side),v=getData(dateKey()),existing=(typeof getDay==='function'?getDay(dateKey()):{})||{};
+ const edition=existing[n.edition]||v[n.edition]||'full-1441',chapter=existing[n.chapter]||v[n.chapter]||'athkar-1';
+ const hs=existing[n.start]??v[n.start]??'',he=existing[n.end]??v[n.end]??'';
+ return `<div class="pgwizard" data-side="${side}"><div class="whead"><h4>🧮 حاسبة الصفحات الذكية</h4><span class="wbadge">تعبئة تلقائية</span></div>
+ <div class="wfield"><label>اختاري نسخة الكتاب أولًا</label><select name="${n.edition}">${Object.entries(ED).map(([k,x])=>`<option value="${k}" ${k===edition?'selected':''}>${esc(x.label)}</option>`).join('')}</select></div>
+ <div class="wfield"><label>الباب</label><select name="${n.chapter}">${CHAPTERS.map(([k,l])=>`<option value="${k}" ${k===chapter?'selected':''}>${esc(l)}</option>`).join('')}</select></div>
+ <div class="wgrid"><div class="wfield"><label>من الحديث رقم</label><input name="${n.start}" type="number" min="1" step="1" inputmode="numeric" placeholder="١" value="${esc(hs)}"></div><div class="wfield"><label>إلى الحديث رقم</label><input name="${n.end}" type="number" min="1" step="1" inputmode="numeric" placeholder="٣" value="${esc(he)}"></div></div>
+ <div class="wresult" id="${side}-page-result" aria-live="polite">اختاري أرقام الأحاديث، وسيظهر المدى إن كان موثّقًا.</div>
+ <div class="whint">عند الحساب: تُحتسب كل صفحة يشملها المدى، حتى لو كان الحديث في جزء منها. ويمكن إدخال صفحات البداية والنهاية يدويًا في الخانات أدناه لأي متن آخر.</div>
+ <a class="wlink" data-edition-link="${side}" target="_blank" rel="noopener noreferrer" href="${esc(ED[edition]?.pdf)}">📖 التحقق من صفحات الطبعة المعتمدة</a></div>`;}
+function mount(){const f=document.getElementById('day-form');if(!f||f.querySelector('[data-side="new"]'))return;
+ for(const [side,i] of [['new',0],['review',1]]){
+  const section=f.querySelectorAll('.form-section')[i];if(!section)continue;
+  const el=document.createElement('div');el.innerHTML=displayWizard(f,side);
+  const target=section.querySelector('.form-row.triple');if(target)target.before(el.firstElementChild);
+ }
+ refresh(f,null,false);
+}
+function isInt(v){return /^\d+$/.test(String(v||''))&&Number(v)>0&&Number.isSafeInteger(Number(v));}
+function setResult(f,side,message,warning=false){const el=f.querySelector('#'+side+'-page-result');if(el){el.className='wresult'+(warning?' warn':'');el.textContent=message;}}
+function refresh(f,target=null,apply=true){if(!f)return;
+ for(const side of ['new','review']){
+  const n=names(side),bk=f.elements[n.book]?.value,edition=f.elements[n.edition]?.value,chapter=f.elements[n.chapter]?.value;
+  if(!f.elements[n.edition])continue;
+  const p=MAP[edition]?.[chapter],start=f.elements[n.start]?.value,end=f.elements[n.end]?.value;
+  const source=ED[edition];const link=f.querySelector(`[data-edition-link="${side}"]`);if(link&&source)link.href=source.pdf;
+  const manualChange=target&&(target.name===n.from||target.name===n.to);
+  if(manualChange){ // الانتهاء من تحديد أرقام الحديث عند التصحيح اليدوي
+   f.elements[n.start].value='';f.elements[n.end].value='';
+   const a=f.elements[n.from].value.trim(),b=f.elements[n.to].value.trim();
+   if(isInt(a)&&isInt(b)&&+b>=+a){f.elements[n.pages].value=(+b-+a+1);setResult(f,side,`📖 الصفحات ${a}–${b} · ${+b-+a+1===1?'صفحة واحدة':+b-+a+1===2?'صفحتان':(+b-+a+1)+' صفحات'} (من إدخالك اليدوي، غير متحقق من فهرس المتن).`)}
+   else setResult(f,side,'أدخلي صفحتي البداية والنهاية يدويًا؛ سأحسب عدد الصفحات فورًا.',true);
+   continue;
+  }
+  if(bk!=='athkar'){
+   setResult(f,side,'هذا المتن لم تُراجع بعد خريطة أرقام أحاديثه وصفحاته. استخدمي خانتي من صفحة وإلى صفحة أدناه وسيُحسب العدد تلقائيًا، دون تخمين.',true);continue;
+  }
+  if(!start&&!end){setResult(f,side,'مثال: فضل طلب العلم، من الحديث ١ إلى ٣ ← الصفحات ١١–١٢، صفحتان في الطبعة المحددة.');continue;}
+  if(!isInt(start)||!isInt(end)||Number(end)<Number(start)){
+   setResult(f,side,'أدخلي رقم الحديث الأول والأخير بترتيب صحيح.',true);continue;
+  }
+  if(!p||!p[Number(start)-1]||!p[Number(end)-1]){
+   setResult(f,side,'لم أوثّق بعد صفحات هذه الأحاديث في هذه الطبعة. لا يمكن حسابها بدقة تلقائيًا حاليًا؛ أدخلي من صفحة وإلى صفحة أدناه.',true);continue;
+  }
+  const first=p[Number(start)-1][0],last=p[Number(end)-1][1],count=last-first+1;
+  setResult(f,side,`✅ من صفحة ${first} إلى ${last} · ${count===1?'صفحة واحدة':count===2?'صفحتان':count+' صفحات'} · حسب ${source.label}`);
+  if(apply){f.elements[n.from].value=first;f.elements[n.to].value=last;f.elements[n.pages].value=count;
+   const title=CHAPTERS.find(x=>x[0]===chapter)?.[1]||'الباب';
+   const label=`${title} · الحديث ${start}${start!==end?' إلى '+end:''}`;
+   const input=f.elements[n.text];
+   if(input&&(!input.value||input.dataset.smartLabel==='1')){input.value=label;input.dataset.smartLabel='1'}
+  }
+ }
+}
+// ملاحظة: الدالة الأم تحفظ السجلات القديمة كما هي؛ نضيف بيانات التحديد فقط عند الحفظ الجديد.
+if(typeof window.dataFromForm==='function'){
+ const previous=window.dataFromForm;
+ window.dataFromForm=function(form){const x=previous(form);if(form?.id==='day-form'){
+   for(const side of ['new','review']){const n=names(side);for(const k of ['edition','chapter','start','end']){
+     const field=n[k];x[field]=form.elements[field]?.value??'';
+   }}
+ }return x};
+}
+if(typeof window.autoCard==='function'){
+ const original=window.autoCard;
+ window.autoCard=function(x){let s=original(x);const fmt=(side)=>{
+   const a=x[side+'From'],b=x[side+'To'];return isInt(a)&&isInt(b)?`📍 ${side==='new'?'صفحات الحفظ':'صفحات المراجعة'}: ${a}${a===b?'':'–'+b}`:'';
+ };
+ const n=fmt('new'),r=fmt('review');
+ if(n)s=s.replace(/\n🌼 عدد صفحات الحفظ:/,'\n'+n+'\n🌼 عدد صفحات الحفظ:');
+ if(r)s=s.replace(/\n🌼عدد الصفحات:/,'\n'+r+'\n🌼عدد الصفحات:');return s;
+ };
+}
+const root=document.getElementById('root');if(root){const obs=new MutationObserver(()=>mount());obs.observe(root,{childList:true});}
+mount();
+// المستمعون المسجلون من التطبيق الأصلي يعملون أولاً؛ نحدّث الحسبة بعدهم مباشرة.
+document.addEventListener('change',e=>{const f=e.target.closest('#day-form');if(!f)return;const t=e.target;
+ const side=t.name?.startsWith('review')?'review':'new';const n=names(side);
+ if(t.name===n.book){f.elements[n.start].value='';f.elements[n.end].value='';}
+ if(t.name===n.edition||t.name===n.chapter){f.elements[n.start].value='';f.elements[n.end].value='';}
+ refresh(f,t,true);if(typeof window.syncCard==='function')window.syncCard();
+});
+document.addEventListener('input',e=>{const f=e.target.closest('#day-form');if(!f)return;
+ if(!/^(new|review)(HadithFrom|HadithTo|From|To)$/.test(e.target.name||''))return;
+ refresh(f,e.target,true);if(typeof window.syncCard==='function')window.syncCard();
+});
+})();
+
+</script><!-- PAGEWIZARD_END -->
+</body></html>
